@@ -5,7 +5,6 @@ import secrets
 from datetime import datetime, timedelta, date
 from typing import Optional
 
-from dotenv import load_dotenv
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query, Depends, Security
 from fastapi.security import APIKeyHeader
