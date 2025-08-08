@@ -20,10 +20,6 @@ from database import engine, get_db
 import models
 
 
-# Load environment variables from a .env file
-load_dotenv()
-
-
 # --- Global Variables & Initialization ---
 
 # Constants for the API key system
