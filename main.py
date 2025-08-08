@@ -20,8 +20,6 @@ from langchain_core.output_parsers import StrOutputParser
 from database import engine, get_db
 import models
 
-# Create the database tables if they don't exist on startup
-models.Base.metadata.create_all(bind=engine)
 
 # Load environment variables from a .env file
 load_dotenv()
