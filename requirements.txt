@@ -4,3 +4,4 @@ python-dotenv
 langchain-mistralai
 langchain-core
 sqlalchemy
+psycopg2-binary # <-- ADD THIS LINE for PostgreSQL
