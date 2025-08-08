@@ -1,26 +1,28 @@
 # database.py
 
+import os
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# For SQLite, the URL is "sqlite:///./keys.db". This will create a file named keys.db in your project folder.
-DATABASE_URL = "sqlite:///./keys.db"
+# Load environment variables for local development
+load_dotenv()
 
-# The engine is the entry point to the database.
-engine = create_engine(
-    DATABASE_URL,
-    # "connect_args" is needed only for SQLite to allow multi-threaded access.
-    connect_args={"check_same_thread": False}
-)
+# Get the database URL from environment variables
+# This will be provided by Vercel in production
+DATABASE_URL = os.getenv("POSTGRES_URL")
 
-# Each instance of the SessionLocal class will be a database session.
+if not DATABASE_URL:
+    raise ValueError("POSTGRES_URL environment variable not set.")
+
+# For PostgreSQL, we don't need 'connect_args'
+engine = create_engine(DATABASE_URL)
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# This Base will be used to create our ORM models.
 Base = declarative_base()
 
-# Dependency to get a DB session for each request
 def get_db():
     db = SessionLocal()
     try:
