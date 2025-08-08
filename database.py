@@ -5,8 +5,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# Load environment variables for local development
-load_dotenv()
 
 # Get the database URL from environment variables
 # This will be provided by Vercel in production
