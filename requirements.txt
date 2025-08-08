@@ -1,7 +1,6 @@
 fastapi
 uvicorn
-python-dotenv
-langchain-mistralai
-langchain-core
 sqlalchemy
 psycopg2-binary
+langchain-mistralai
+langchain-core
