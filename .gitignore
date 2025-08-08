@@ -1,0 +1,16 @@
+# .gitignore
+
+# Byte-compiled / optimized / C extensions
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables
+.env
+
+# Vercel
+.vercel/
+
+# Database files
+*.db
+*.sqlite3
