@@ -1,34 +1,18 @@
 # main.py
 
 import os
-import secrets
-from datetime import datetime, timedelta, date
-from typing import Optional
-
-import uvicorn
-from fastapi import FastAPI, HTTPException, Query, Depends, Security
-from fastapi.security import APIKeyHeader
+from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
 
 from langchain_mistralai.chat_models import ChatMistralAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
-# --- Import database components ---
-from database import engine, get_db
-import models
+# --- Initialization ---
 
-
-# --- Global Variables & Initialization ---
-
-# Constants for the API key system
-DAILY_REQUEST_LIMIT = 1000
-KEY_EXPIRATION_DAYS = 30
-
-# Check for Mistral API Key
+# Check for Mistral API Key for the LLM connection
 if not os.getenv("MISTRAL_API_KEY"):
-    raise ValueError("MISTRAL_API_KEY environment variable not set. Please create a .env file and add it.")
+    raise ValueError("MISTRAL_API_KEY environment variable not set. Please set it in your Vercel project settings.")
 
 # Initialize the LLM from Mistral
 llm = ChatMistralAI(
@@ -135,6 +119,7 @@ Do not promise or reference specific product features, usage limits, pricing, su
 You are now connected to a person as ZEUS AI.
 """
 
+
 # Create a prompt template
 prompt_template = ChatPromptTemplate.from_messages([
     ("system", system_prompt),
@@ -149,8 +134,8 @@ chain = prompt_template | llm | StrOutputParser()
 
 app = FastAPI(
     title="Persona-based Mistral LLM API",
-    description="An API that uses a pre-defined persona to respond to user queries, secured with API keys and rate limiting.",
-    version="5.1.0"
+    description="An API that uses a pre-defined persona to respond to user queries.",
+    version="6.0.0"
 )
 
 
@@ -159,86 +144,13 @@ app = FastAPI(
 class QueryResponse(BaseModel):
     response: str
 
-class KeyCreationResponse(BaseModel):
-    api_key: str
-    detail: str
-
-
-# --- API Key Security and Rate Limiting Dependency ---
-
-# Define the header scheme
-api_key_header_scheme = APIKeyHeader(name="X-API-Key", auto_error=False)
-
-async def get_api_key(
-    key_from_header: Optional[str] = Security(api_key_header_scheme),
-    key_from_query: Optional[str] = Query(None, alias="api_key", description="API key as a query parameter"),
-    db: Session = Depends(get_db)
-):
-    """
-    Dependency to validate the API key. It checks for the key in the
-    'X-API-Key' header first, then in the 'api_key' query parameter.
-    """
-    api_key = key_from_header or key_from_query
-
-    if not api_key:
-        raise HTTPException(
-            status_code=403,
-            detail="An API key is required. Provide it in the 'X-API-Key' header or as an 'api_key' query parameter."
-        )
-
-    db_key = db.query(models.APIKey).filter(models.APIKey.key == api_key).first()
-
-    if not db_key:
-        raise HTTPException(status_code=403, detail="Invalid API Key.")
-
-    expiration_date = db_key.created_at.replace(tzinfo=None) + timedelta(days=KEY_EXPIRATION_DAYS)
-    if datetime.utcnow() > expiration_date:
-        db.delete(db_key)
-        db.commit()
-        raise HTTPException(status_code=403, detail="API Key has expired. Please create a new one.")
-
-    today = date.today()
-    if db_key.last_request_date == today:
-        if db_key.request_count_today >= DAILY_REQUEST_LIMIT:
-            raise HTTPException(status_code=429, detail=f"Daily request limit of {DAILY_REQUEST_LIMIT} exceeded.")
-        db_key.request_count_today += 1
-    else:
-        db_key.last_request_date = today
-        db_key.request_count_today = 1
-
-    db.commit()
-    return db_key
-
 
 # --- API Endpoints ---
 
-@app.post("/create-key", response_model=KeyCreationResponse, tags=["Key Management"])
-async def create_api_key(db: Session = Depends(get_db)):
-    """
-    Creates a new API key and stores it in the database.
-    The key is valid for 30 days and has a limit of 1000 requests per day.
-    """
-    new_key_str = secrets.token_urlsafe(32)
-    new_key_obj = models.APIKey(key=new_key_str)
-
-    db.add(new_key_obj)
-    db.commit()
-    db.refresh(new_key_obj)
-
-    return KeyCreationResponse(
-        api_key=new_key_str,
-        detail=f"Key created successfully. It will expire in {KEY_EXPIRATION_DAYS} days."
-    )
-
-
 @app.get("/ask", response_model=QueryResponse, tags=["AI Query"])
-async def ask_zeus_ai(
-    query: str = Query(..., min_length=1, description="The question you want to ask Zeus AI."),
-    api_key_data: models.APIKey = Depends(get_api_key)
-):
+async def ask_zeus_ai(query: str = Query(..., min_length=1, description="The question you want to ask Zeus AI.")):
     """
-    Endpoint to ask a question. Requires a valid API Key provided either
-    in the 'X-API-Key' header or as an 'api_key' query parameter.
+    Endpoint to ask a question. This endpoint is now public.
     """
     try:
         response = chain.invoke({"user_query": query})
@@ -249,9 +161,4 @@ async def ask_zeus_ai(
 
 @app.get("/", include_in_schema=False)
 async def root():
-    return {"message": "Welcome to the Zeus AI API! Go to /docs to see the endpoints."}
-
-
-# --- Main execution block ---
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    return {"message": "Welcome to the Zeus AI API! Go to /docs to see the API."}
