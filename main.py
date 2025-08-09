@@ -1,7 +1,7 @@
-# main.py
-
 import os
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel
 
 from langchain_mistralai.chat_models import ChatMistralAI
@@ -17,7 +17,8 @@ if not os.getenv("MISTRAL_API_KEY"):
 # Initialize the LLM from Mistral
 llm = ChatMistralAI(
     model="mistral-large-latest",
-    temperature=0.3
+    temperature=0.3,
+    request_timeout=60  # --- ROBUSTNESS 1: Add a 60-second timeout ---
 )
 
 # Define the system prompt (the persona)
@@ -133,10 +134,22 @@ chain = prompt_template | llm | StrOutputParser()
 # --- FastAPI Application ---
 
 app = FastAPI(
-    title="Persona-based Mistral LLM API",
-    description="An API that uses a pre-defined persona to respond to user queries.",
-    version="6.0.0"
+    title="ZEUS ARTIFICIAL INTELLIGENCE",
+    description="An Artificial Intelligence API made by ZEUS THUG.",
+    version="1.1.0"  # Updated version
 )
+
+# --- USER-FRIENDLY ERROR 1: Custom Exception Handler ---
+# This decorator catches validation errors (like a missing 'query' parameter)
+# and replaces the default technical error with our own JSON response.
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    # For this simple case, we know the only required field is 'query'.
+    # In a more complex API, you might loop through `exc.errors()` to generate more specific messages.
+    return JSONResponse(
+        status_code=422,
+        content={"detail": "Error: The 'query' parameter is required. Please provide a question, for example: /ask?query=who are you?"}
+    )
 
 
 # --- Pydantic Models for Request/Response ---
@@ -153,12 +166,24 @@ async def ask_zeus_ai(query: str = Query(..., min_length=1, description="The que
     Endpoint to ask a question. This endpoint is now public.
     """
     try:
+        # This is the call to the external Mistral AI service
         response = chain.invoke({"user_query": query})
         return QueryResponse(response=response)
+    
+    # --- ROBUSTNESS 2: Improved Exception Handling for the LLM call ---
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+        # For the developer: Log the actual, detailed error to the console or a log file.
+        # This is crucial for debugging.
+        print(f"An unexpected error occurred with the AI service: {e}")
+        
+        # For the user: Raise a standard HTTP exception with a generic, non-technical message.
+        # This prevents leaking sensitive implementation details.
+        raise HTTPException(
+            status_code=503,  # 503 Service Unavailable is a good choice here
+            detail="The AI service is currently unavailable. Please try again later."
+        )
 
 
 @app.get("/", include_in_schema=False)
 async def root():
-    return {"message": "Welcome to the Zeus AI API! Go to /docs to see the API."}
+    return {"message": "Welcome to the Zeus Artificial Intelligence API! Go to /ask endpoint to use the API."}
